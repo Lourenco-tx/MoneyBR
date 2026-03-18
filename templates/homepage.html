@@ -1,3 +1,4 @@
+
 {% extends 'base.html' %}
 
 {% block body %}
@@ -33,24 +34,43 @@
     .btn-novo { background: #95a5a6; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
     label { font-weight: bold; display: block; margin-bottom: 5px; font-size: 0.9em; }
 
+    /* Estilos da Tabela */
     .tabela-wrapper { max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; }
     table { width: 100%; border-collapse: collapse; background: white; }
-    th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+    th, td { padding: 12px; border: 1px solid #ddd; text-align: left; transition: all 0.1s; }
     th { background-color: #34495e; color: white; position: sticky; top: 0; z-index: 5; }
 
     tbody tr:nth-child(even) { background-color: #f9f9f9; }
-    tbody tr:hover { background-color: #d1ecf1 !important; cursor: pointer; }
 
-    .selecionada { background-color: #3498db !important; color: white !important; }
+    /* Cores das Colunas em estado Normal */
+    .txt-credito { color: #27ae60; font-weight: bold; }
+    .txt-debito { color: #e74c3c; font-weight: bold; }
+    .col-saldo { font-weight: bold; text-align: right; background-color: #fcfcfc; color: #2c3e50; }
+    .alinhar-direita { text-align: right; }
 
+    /* 1. Efeito HOVER (Passar o mouse) - Azul Claro */
+    tbody tr:hover td,
+    tbody tr:hover td span,
+    tbody tr:hover .col-saldo {
+        background-color: #d1ecf1 !important;
+        color: #0c5460 !important;
+        cursor: pointer;
+    }
+
+    /* 2. Efeito SELECIONADA (Foco/Click) - Azul Escuro */
+    .selecionada td,
+    .selecionada td span,
+    .selecionada .col-saldo {
+        background-color: #3498db !important;
+        color: white !important;
+    }
+
+    /* Animação Flash ao Salvar */
     .flash-foco { animation: flash-verde 2s ease-out; }
     @keyframes flash-verde {
         0% { background-color: #2ecc71; color: white; }
         100% { background-color: transparent; }
     }
-
-    .alinhar-direita { text-align: right; }
-    .col-saldo { font-weight: bold; text-align: right; }
 </style>
 
 <div class="moneybr-container">
@@ -65,8 +85,8 @@
                     <th>ID</th>
                     <th>Data</th>
                     <th>Favorecido</th>
-                    <th>C/D</th>
-                    <th class="alinhar-direita">Valor</th>
+                    <th class="alinhar-direita">Crédito (+)</th>
+                    <th class="alinhar-direita">Débito (-)</th>
                     <th class="alinhar-direita">Saldo</th>
                 </tr>
             </thead>
@@ -91,8 +111,8 @@
         <div>
             <label>Tipo (C/D):</label>
             <select id="campoTipo">
-                <option value="0">0 - Débito</option>
-                <option value="1">1 - Crédito</option>
+                <option value="0">0 - Débito (Saída)</option>
+                <option value="1">1 - Crédito (Entrada)</option>
             </select>
         </div>
         <div><label>Valor:</label><input type="text" id="campoValor" placeholder="0,00" oninput="mascaraMoeda(this)"></div>
@@ -117,29 +137,34 @@
             let saldoAcumulado = 10000.00;
 
             dadosCache.forEach((item) => {
-                const valor = parseFloat(item.valor) || 0;
-                item.tipo_cd == 1 ? saldoAcumulado += valor : saldoAcumulado -= valor;
+                const valorNumerico = parseFloat(item.valor) || 0;
+                let colCredito = "---";
+                let colDebito = "---";
+
+                if (parseInt(item.tipo_cd) === 1) {
+                    saldoAcumulado += valorNumerico;
+                    colCredito = `<span class="txt-credito">${formatarMoeda(valorNumerico)}</span>`;
+                } else {
+                    saldoAcumulado -= valorNumerico;
+                    colDebito = `<span class="txt-debito">${formatarMoeda(valorNumerico)}</span>`;
+                }
 
                 const tr = document.createElement('tr');
                 tr.id = `linha-${item.id}`;
-                tr.onclick = () => preencherFormulario(item.id); // Clique manual
+                tr.onclick = () => preencherFormulario(item.id);
 
                 tr.innerHTML = `
                     <td>${item.id}</td>
                     <td>${formatarData(item.data)}</td>
                     <td>${item.favorecido || ''}</td>
-                    <td>${item.tipo_cd == 1 ? "🟢 C" : "🔴 D"}</td>
-                    <td class="alinhar-direita">${formatarMoeda(valor)}</td>
+                    <td class="alinhar-direita">${colCredito}</td>
+                    <td class="alinhar-direita">${colDebito}</td>
                     <td class="col-saldo">${formatarMoeda(saldoAcumulado)}</td>
                 `;
                 corpo.appendChild(tr);
             });
 
-            // Lógica de Foco Automático e Preenchimento após Salvar
-            let idParaFocar = idFocoManual;
-            if (!idParaFocar && dadosCache.length > 0) {
-                idParaFocar = dadosCache[dadosCache.length - 1].id;
-            }
+            let idParaFocar = idFocoManual || (dadosCache.length > 0 ? dadosCache[dadosCache.length - 1].id : null);
 
             if (idParaFocar) {
                 setTimeout(() => {
@@ -147,30 +172,24 @@
                     if (linhaFoco) {
                         linhaFoco.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         linhaFoco.classList.add('flash-foco');
-                        // Esta linha é o segredo: ela preenche o formulário com os dados recém-salvos
                         preencherFormulario(idParaFocar, false);
                     }
                 }, 300);
             }
-        } catch (e) { console.error("Erro ao carregar dados:", e); }
+        } catch (e) { console.error("Erro MoneyBr:", e); }
     }
 
-    // Função que transporta os dados da tabela para o formulário
     function preencherFormulario(id, rolarParaForm = true) {
         const reg = dadosCache.find(d => d.id == id);
         if (!reg) return;
 
-        // Visual na tabela
         document.querySelectorAll('tr').forEach(l => l.classList.remove('selecionada'));
         const linha = document.getElementById(`linha-${id}`);
         if (linha) linha.classList.add('selecionada');
 
-        // Cabeçalho do formulário
-        const titulo = document.getElementById('tituloForm');
-        titulo.innerText = "📝 Registro Selecionado: " + reg.id;
-        titulo.style.backgroundColor = "#2980b9";
+        document.getElementById('tituloForm').innerText = "📝 Registro: " + reg.id;
+        document.getElementById('tituloForm').style.backgroundColor = "#2980b9";
 
-        // Preenchimento dos Inputs
         document.getElementById('campoID').value = reg.id;
         document.getElementById('campoData').value = reg.data;
         document.getElementById('campoFavorecido').value = reg.favorecido || '';
@@ -180,7 +199,6 @@
         document.getElementById('campoCategoria').value = reg.categoria_id || 0;
         document.getElementById('campoSubCategoria').value = reg.subcategoria_id || 0;
 
-        // Só faz scroll para o formulário se for clique manual (para não atrapalhar o foco visual na tabela ao salvar)
         if (rolarParaForm) {
             document.getElementById('containerForm').scrollIntoView({ behavior: 'smooth' });
         }
@@ -232,7 +250,6 @@
             if (res.ok) {
                 const resp = await res.json();
                 const idFoco = idExistente || resp.id;
-                // Note que NÃO limpamos o formulário aqui, deixamos o carregarDados cuidar disso ao focar
                 await carregarDados(idFoco);
             }
         } catch (e) { alert("Erro de conexão."); }
