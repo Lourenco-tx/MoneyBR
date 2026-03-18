@@ -3,8 +3,6 @@
 {% block body %}
 <style>
     .moneybr-container { font-family: 'Segoe UI', sans-serif; padding: 20px; background-color: #f4f7f6; }
-
-    /* Ajuste para separar a tabela do formulário que agora vem abaixo */
     .espaco-topo { margin-top: 30px; }
 
     .header-moneybr {
@@ -17,26 +15,15 @@
     }
 
     #tituloForm {
-        background-color: #34495e;
-        color: white;
-        padding: 8px 20px;
-        border-radius: 4px;
-        font-size: 1em;
-        margin: 0;
-        transition: background-color 0.3s;
-        min-width: 220px;
-        text-align: center;
+        background-color: #34495e; color: white; padding: 8px 20px; border-radius: 4px;
+        font-size: 1em; margin: 0; transition: all 0.3s; min-width: 220px; text-align: center;
     }
 
     #containerForm {
-        padding: 20px;
-        background: white;
-        border-radius: 8px;
+        padding: 20px; background: white; border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        display: grid;
-        grid-template-columns: 150px 2.8fr 0.6fr 0.6fr;
-        gap: 15px;
-        margin-bottom: 30px;
+        display: grid; grid-template-columns: 150px 2.8fr 0.6fr 0.6fr;
+        gap: 15px; margin-bottom: 30px;
     }
 
     input, select { padding: 10px; width: 100%; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
@@ -46,36 +33,46 @@
     .btn-novo { background: #95a5a6; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
     label { font-weight: bold; display: block; margin-bottom: 5px; font-size: 0.9em; }
 
-    table { width: 100%; border-collapse: collapse; background: white; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .tabela-wrapper { max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; }
+    table { width: 100%; border-collapse: collapse; background: white; }
     th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
-    th { background-color: #34495e; color: white; }
+    th { background-color: #34495e; color: white; position: sticky; top: 0; z-index: 5; }
+
+    tbody tr:nth-child(even) { background-color: #f9f9f9; }
+    tbody tr:hover { background-color: #d1ecf1 !important; cursor: pointer; }
+
+    .selecionada { background-color: #3498db !important; color: white !important; }
+
+    .flash-foco { animation: flash-verde 2s ease-out; }
+    @keyframes flash-verde {
+        0% { background-color: #2ecc71; color: white; }
+        100% { background-color: transparent; }
+    }
+
     .alinhar-direita { text-align: right; }
-    tbody tr:nth-child(even) { background-color: #f2f2f2; }
-    tbody tr:hover { background-color: #d1ecf1; cursor: pointer; }
-    .selecionada { background-color: #3498db !important; color: white; }
-    .col-saldo { font-weight: bold; color: #2c3e50; text-align: right; }
-    #campoValor { text-align: right; }
+    .col-saldo { font-weight: bold; text-align: right; }
 </style>
 
 <div class="moneybr-container">
-
     <div class="header-moneybr">
         <h3>Extrato de Transações</h3>
     </div>
 
-    <table id="tabelaTransacoes">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Data</th>
-                <th>Favorecido</th>
-                <th>C/D</th>
-                <th class="alinhar-direita">Valor</th>
-                <th class="alinhar-direita">Saldo</th>
-            </tr>
-        </thead>
-        <tbody id="corpoTabela"></tbody>
-    </table>
+    <div class="tabela-wrapper">
+        <table id="tabelaTransacoes">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Data</th>
+                    <th>Favorecido</th>
+                    <th>C/D</th>
+                    <th class="alinhar-direita">Valor</th>
+                    <th class="alinhar-direita">Saldo</th>
+                </tr>
+            </thead>
+            <tbody id="corpoTabela"></tbody>
+        </table>
+    </div>
 
     <hr>
 
@@ -83,20 +80,14 @@
         <h3 id="tituloForm">Novo Lançamento</h3>
         <div class="btn-group">
             <button type="button" class="btn-novo" onclick="limparForm()">Limpar / Novo</button>
-            <button type="button" class="btn-salvar" onclick="confirmarSalvar()">Salvar no Banco</button>
+            <button type="button" class="btn-salvar" onclick="confirmarSalvar()">Confirmar e Salvar</button>
         </div>
     </div>
 
     <div id="containerForm">
         <input type="hidden" id="campoID">
-        <div>
-            <label>Data:</label>
-            <input type="date" id="campoData">
-        </div>
-        <div>
-            <label>Favorecido:</label>
-            <input type="text" id="campoFavorecido" placeholder="Nome">
-        </div>
+        <div><label>Data:</label><input type="date" id="campoData"></div>
+        <div><label>Favorecido:</label><input type="text" id="campoFavorecido"></div>
         <div>
             <label>Tipo (C/D):</label>
             <select id="campoTipo">
@@ -104,156 +95,147 @@
                 <option value="1">1 - Crédito</option>
             </select>
         </div>
-        <div>
-               <label>Valor:</label>
-               <input type="text" id="campoValor" placeholder="0,00" oninput="mascaraMoeda(this)">
-        </div>
-        <div class="span-2">
-            <label>Descrição:</label>
-            <input type="text" id="campoDescricao" placeholder="Observações adicionais">
-        </div>
-        <div>
-            <label>Categoria:</label>
-            <input type="number" id="campoCategoria">
-        </div>
-        <div>
-            <label>Sub-categoria:</label>
-            <input type="number" id="campoSubCategoria">
-        </div>
+        <div><label>Valor:</label><input type="text" id="campoValor" placeholder="0,00" oninput="mascaraMoeda(this)"></div>
+        <div class="span-2"><label>Descrição:</label><input type="text" id="campoDescricao"></div>
+        <div><label>Categoria:</label><input type="number" id="campoCategoria"></div>
+        <div><label>Sub-categoria:</label><input type="number" id="campoSubCategoria"></div>
     </div>
-
 </div>
 
 <script>
-    // Mantive suas funções carregarDados, selecionarLinha, etc., sem alterações lógicas.
-    // Apenas lembre-se que ao clicar em uma linha da tabela, a página fará o scroll
-    // suave de volta para o formulário para edição.
+    let dadosCache = [];
 
-    window.onload = carregarDados;
+    window.onload = () => carregarDados();
 
-    async function carregarDados() {
-        const res = await fetch('/api/transacoes');
-        const dados = await res.json();
-        const corpo = document.getElementById('corpoTabela');
-        corpo.innerHTML = '';
+    async function carregarDados(idFocoManual = null) {
+        try {
+            const res = await fetch('/api/transacoes');
+            dadosCache = await res.json();
+            const corpo = document.getElementById('corpoTabela');
+            corpo.innerHTML = '';
 
-        let saldoAcumulado = 10000.00;
+            let saldoAcumulado = 10000.00;
 
-        dados.forEach(item => {
-            if (item.tipo_cd == 1) {
-                saldoAcumulado += item.valor;
-            } else {
-                saldoAcumulado -= item.valor;
+            dadosCache.forEach((item) => {
+                const valor = parseFloat(item.valor) || 0;
+                item.tipo_cd == 1 ? saldoAcumulado += valor : saldoAcumulado -= valor;
+
+                const tr = document.createElement('tr');
+                tr.id = `linha-${item.id}`;
+                tr.onclick = () => preencherFormulario(item.id); // Clique manual
+
+                tr.innerHTML = `
+                    <td>${item.id}</td>
+                    <td>${formatarData(item.data)}</td>
+                    <td>${item.favorecido || ''}</td>
+                    <td>${item.tipo_cd == 1 ? "🟢 C" : "🔴 D"}</td>
+                    <td class="alinhar-direita">${formatarMoeda(valor)}</td>
+                    <td class="col-saldo">${formatarMoeda(saldoAcumulado)}</td>
+                `;
+                corpo.appendChild(tr);
+            });
+
+            // Lógica de Foco Automático e Preenchimento após Salvar
+            let idParaFocar = idFocoManual;
+            if (!idParaFocar && dadosCache.length > 0) {
+                idParaFocar = dadosCache[dadosCache.length - 1].id;
             }
 
-            let dataFormatada = item.data;
-            if (item.data && item.data.includes('-')) {
-                const partes = item.data.split('-');
-                dataFormatada = `${partes[2]}/${partes[1]}/${partes[0]}`;
+            if (idParaFocar) {
+                setTimeout(() => {
+                    const linhaFoco = document.getElementById(`linha-${idParaFocar}`);
+                    if (linhaFoco) {
+                        linhaFoco.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        linhaFoco.classList.add('flash-foco');
+                        // Esta linha é o segredo: ela preenche o formulário com os dados recém-salvos
+                        preencherFormulario(idParaFocar, false);
+                    }
+                }, 300);
             }
-
-            const valorFormatado = new Intl.NumberFormat('pt-BR', {
-               minimumFractionDigits: 2,
-               maximumFractionDigits: 2
-           }).format(item.valor);
-
-            const saldoFormatado = saldoAcumulado.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-
-            const tr = document.createElement('tr');
-            tr.onclick = () => selecionarLinha(tr, item);
-            const tipoLabel = item.tipo_cd == 1 ? "🟢 C" : "🔴 D";
-
-            tr.innerHTML = `
-                <td>${item.id}</td>
-                <td>${dataFormatada}</td>
-                <td>${item.favorecido}</td>
-                <td>${tipoLabel}</td>
-                <td class="alinhar-direita">${valorFormatado}</td>
-                <td class="col-saldo">${saldoFormatado}</td>
-            `;
-            corpo.appendChild(tr);
-        });
+        } catch (e) { console.error("Erro ao carregar dados:", e); }
     }
 
-    function formatarExibicao(valor) {
-        return new Intl.NumberFormat('pt-BR', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(valor);
-    }
+    // Função que transporta os dados da tabela para o formulário
+    function preencherFormulario(id, rolarParaForm = true) {
+        const reg = dadosCache.find(d => d.id == id);
+        if (!reg) return;
 
-    function selecionarLinha(tr, item) {
+        // Visual na tabela
         document.querySelectorAll('tr').forEach(l => l.classList.remove('selecionada'));
-        tr.classList.add('selecionada');
+        const linha = document.getElementById(`linha-${id}`);
+        if (linha) linha.classList.add('selecionada');
 
-        document.getElementById('tituloForm').innerText = "📝 Editando Registro: " + item.id;
-        document.getElementById('tituloForm').style.backgroundColor = "#2980b9";
+        // Cabeçalho do formulário
+        const titulo = document.getElementById('tituloForm');
+        titulo.innerText = "📝 Registro Selecionado: " + reg.id;
+        titulo.style.backgroundColor = "#2980b9";
 
-        document.getElementById('campoID').value = item.id;
-        document.getElementById('campoData').value = item.data;
-        document.getElementById('campoFavorecido').value = item.favorecido;
-        document.getElementById('campoCategoria').value = item.categoria_id;
-        document.getElementById('campoSubCategoria').value = item.subcategoria_id;
-        document.getElementById('campoDescricao').value = item.descricao;
-        document.getElementById('campoTipo').value = item.tipo_cd;
-        document.getElementById('campoValor').value = formatarExibicao(item.valor);
+        // Preenchimento dos Inputs
+        document.getElementById('campoID').value = reg.id;
+        document.getElementById('campoData').value = reg.data;
+        document.getElementById('campoFavorecido').value = reg.favorecido || '';
+        document.getElementById('campoTipo').value = reg.tipo_cd;
+        document.getElementById('campoValor').value = formatarMoeda(reg.valor);
+        document.getElementById('campoDescricao').value = reg.descricao || '';
+        document.getElementById('campoCategoria').value = reg.categoria_id || 0;
+        document.getElementById('campoSubCategoria').value = reg.subcategoria_id || 0;
 
-        // Ajuste: O scroll agora vai para o campoData (início do formulário) que está abaixo
-        document.getElementById('containerForm').scrollIntoView({ behavior: 'smooth' });
+        // Só faz scroll para o formulário se for clique manual (para não atrapalhar o foco visual na tabela ao salvar)
+        if (rolarParaForm) {
+            document.getElementById('containerForm').scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+
+    function formatarMoeda(v) { return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v); }
+    function formatarData(d) { if(!d) return ""; const [a, m, dia] = d.split('-'); return `${dia}/${m}/${a}`; }
+
+    function mascaraMoeda(campo) {
+        let v = campo.value.replace(/\D/g, '');
+        v = (parseFloat(v) / 100);
+        campo.value = isNaN(v) ? "" : formatarMoeda(v);
     }
 
     function limparForm() {
         document.getElementById('campoID').value = '';
-        document.getElementById('campoData').value = '';
-        document.getElementById('campoFavorecido').value = '';
-        document.getElementById('campoCategoria').value = '';
-        document.getElementById('campoSubCategoria').value = '';
-        document.getElementById('campoDescricao').value = '';
+        document.getElementById('containerForm').querySelectorAll('input').forEach(i => i.value = '');
         document.getElementById('campoTipo').value = '0';
-        document.getElementById('campoValor').value = '';
-
         document.getElementById('tituloForm').innerText = "Novo Lançamento";
         document.getElementById('tituloForm').style.backgroundColor = "#34495e";
-        document.querySelectorAll('tr').forEach(l => l.classList.remove('selecionada'));
-    }
-
-    function mascaraMoeda(campo) {
-        let valor = campo.value.replace(/\D/g, '');
-        if (valor === "") { campo.value = ""; return; }
-        valor = (parseFloat(valor) / 100);
-        campo.value = formatarExibicao(valor);
+        document.querySelectorAll('tr').forEach(l => l.classList.remove('selecionada', 'flash-foco'));
     }
 
     async function confirmarSalvar() {
+        const idExistente = document.getElementById('campoID').value;
         const valorRaw = document.getElementById('campoValor').value;
         const valorLimpo = parseFloat(valorRaw.replace(/\./g, '').replace(',', '.'));
 
         const payload = {
-            id: document.getElementById('campoID').value,
+            id: idExistente,
             data: document.getElementById('campoData').value,
             favorecido: document.getElementById('campoFavorecido').value,
-            categoria_id: parseInt(document.getElementById('campoCategoria').value) || 0,
-            subcategoria_id: parseInt(document.getElementById('campoSubCategoria').value) || 0,
-            descricao: document.getElementById('campoDescricao').value,
             tipo_cd: parseInt(document.getElementById('campoTipo').value),
-            valor: valorLimpo
+            valor: valorLimpo,
+            descricao: document.getElementById('campoDescricao').value,
+            categoria_id: parseInt(document.getElementById('campoCategoria').value) || 0,
+            subcategoria_id: parseInt(document.getElementById('campoSubCategoria').value) || 0
         };
 
-        if (!payload.data || isNaN(payload.valor)) return alert("Data e Valor são obrigatórios!");
+        const rota = idExistente ? '/api/transacoes/atualizar' : '/api/transacoes/inserir';
 
-        const rota = payload.id ? '/api/transacoes/atualizar' : '/api/transacoes/inserir';
+        try {
+            const res = await fetch(rota, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
 
-        const response = await fetch(rota, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (response.ok) {
-            limparForm();
-            carregarDados();
-            window.scrollTo({ top: 0, behavior: 'smooth' }); // Volta para a tabela após salvar
-        }
+            if (res.ok) {
+                const resp = await res.json();
+                const idFoco = idExistente || resp.id;
+                // Note que NÃO limpamos o formulário aqui, deixamos o carregarDados cuidar disso ao focar
+                await carregarDados(idFoco);
+            }
+        } catch (e) { alert("Erro de conexão."); }
     }
 </script>
 {% endblock %}
