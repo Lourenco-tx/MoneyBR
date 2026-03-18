@@ -1,0 +1,259 @@
+{% extends 'base.html' %}
+
+{% block body %}
+<style>
+    .moneybr-container { font-family: 'Segoe UI', sans-serif; padding: 20px; background-color: #f4f7f6; }
+
+    /* Ajuste para separar a tabela do formulário que agora vem abaixo */
+    .espaco-topo { margin-top: 30px; }
+
+    .header-moneybr {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #34495e;
+        padding-bottom: 10px;
+    }
+
+    #tituloForm {
+        background-color: #34495e;
+        color: white;
+        padding: 8px 20px;
+        border-radius: 4px;
+        font-size: 1em;
+        margin: 0;
+        transition: background-color 0.3s;
+        min-width: 220px;
+        text-align: center;
+    }
+
+    #containerForm {
+        padding: 20px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        display: grid;
+        grid-template-columns: 150px 2.8fr 0.6fr 0.6fr;
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+
+    input, select { padding: 10px; width: 100%; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    .span-2 { grid-column: span 2; }
+    .btn-group { display: flex; gap: 10px; }
+    .btn-salvar { background: #27ae60; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .btn-novo { background: #95a5a6; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
+    label { font-weight: bold; display: block; margin-bottom: 5px; font-size: 0.9em; }
+
+    table { width: 100%; border-collapse: collapse; background: white; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+    th { background-color: #34495e; color: white; }
+    .alinhar-direita { text-align: right; }
+    tbody tr:nth-child(even) { background-color: #f2f2f2; }
+    tbody tr:hover { background-color: #d1ecf1; cursor: pointer; }
+    .selecionada { background-color: #3498db !important; color: white; }
+    .col-saldo { font-weight: bold; color: #2c3e50; text-align: right; }
+    #campoValor { text-align: right; }
+</style>
+
+<div class="moneybr-container">
+
+    <div class="header-moneybr">
+        <h3>Extrato de Transações</h3>
+    </div>
+
+    <table id="tabelaTransacoes">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Data</th>
+                <th>Favorecido</th>
+                <th>C/D</th>
+                <th class="alinhar-direita">Valor</th>
+                <th class="alinhar-direita">Saldo</th>
+            </tr>
+        </thead>
+        <tbody id="corpoTabela"></tbody>
+    </table>
+
+    <hr>
+
+    <div class="header-moneybr espaco-topo">
+        <h3 id="tituloForm">Novo Lançamento</h3>
+        <div class="btn-group">
+            <button type="button" class="btn-novo" onclick="limparForm()">Limpar / Novo</button>
+            <button type="button" class="btn-salvar" onclick="confirmarSalvar()">Salvar no Banco</button>
+        </div>
+    </div>
+
+    <div id="containerForm">
+        <input type="hidden" id="campoID">
+        <div>
+            <label>Data:</label>
+            <input type="date" id="campoData">
+        </div>
+        <div>
+            <label>Favorecido:</label>
+            <input type="text" id="campoFavorecido" placeholder="Nome">
+        </div>
+        <div>
+            <label>Tipo (C/D):</label>
+            <select id="campoTipo">
+                <option value="0">0 - Débito</option>
+                <option value="1">1 - Crédito</option>
+            </select>
+        </div>
+        <div>
+               <label>Valor:</label>
+               <input type="text" id="campoValor" placeholder="0,00" oninput="mascaraMoeda(this)">
+        </div>
+        <div class="span-2">
+            <label>Descrição:</label>
+            <input type="text" id="campoDescricao" placeholder="Observações adicionais">
+        </div>
+        <div>
+            <label>Categoria:</label>
+            <input type="number" id="campoCategoria">
+        </div>
+        <div>
+            <label>Sub-categoria:</label>
+            <input type="number" id="campoSubCategoria">
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // Mantive suas funções carregarDados, selecionarLinha, etc., sem alterações lógicas.
+    // Apenas lembre-se que ao clicar em uma linha da tabela, a página fará o scroll
+    // suave de volta para o formulário para edição.
+
+    window.onload = carregarDados;
+
+    async function carregarDados() {
+        const res = await fetch('/api/transacoes');
+        const dados = await res.json();
+        const corpo = document.getElementById('corpoTabela');
+        corpo.innerHTML = '';
+
+        let saldoAcumulado = 10000.00;
+
+        dados.forEach(item => {
+            if (item.tipo_cd == 1) {
+                saldoAcumulado += item.valor;
+            } else {
+                saldoAcumulado -= item.valor;
+            }
+
+            let dataFormatada = item.data;
+            if (item.data && item.data.includes('-')) {
+                const partes = item.data.split('-');
+                dataFormatada = `${partes[2]}/${partes[1]}/${partes[0]}`;
+            }
+
+            const valorFormatado = new Intl.NumberFormat('pt-BR', {
+               minimumFractionDigits: 2,
+               maximumFractionDigits: 2
+           }).format(item.valor);
+
+            const saldoFormatado = saldoAcumulado.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+
+            const tr = document.createElement('tr');
+            tr.onclick = () => selecionarLinha(tr, item);
+            const tipoLabel = item.tipo_cd == 1 ? "🟢 C" : "🔴 D";
+
+            tr.innerHTML = `
+                <td>${item.id}</td>
+                <td>${dataFormatada}</td>
+                <td>${item.favorecido}</td>
+                <td>${tipoLabel}</td>
+                <td class="alinhar-direita">${valorFormatado}</td>
+                <td class="col-saldo">${saldoFormatado}</td>
+            `;
+            corpo.appendChild(tr);
+        });
+    }
+
+    function formatarExibicao(valor) {
+        return new Intl.NumberFormat('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(valor);
+    }
+
+    function selecionarLinha(tr, item) {
+        document.querySelectorAll('tr').forEach(l => l.classList.remove('selecionada'));
+        tr.classList.add('selecionada');
+
+        document.getElementById('tituloForm').innerText = "📝 Editando Registro: " + item.id;
+        document.getElementById('tituloForm').style.backgroundColor = "#2980b9";
+
+        document.getElementById('campoID').value = item.id;
+        document.getElementById('campoData').value = item.data;
+        document.getElementById('campoFavorecido').value = item.favorecido;
+        document.getElementById('campoCategoria').value = item.categoria_id;
+        document.getElementById('campoSubCategoria').value = item.subcategoria_id;
+        document.getElementById('campoDescricao').value = item.descricao;
+        document.getElementById('campoTipo').value = item.tipo_cd;
+        document.getElementById('campoValor').value = formatarExibicao(item.valor);
+
+        // Ajuste: O scroll agora vai para o campoData (início do formulário) que está abaixo
+        document.getElementById('containerForm').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function limparForm() {
+        document.getElementById('campoID').value = '';
+        document.getElementById('campoData').value = '';
+        document.getElementById('campoFavorecido').value = '';
+        document.getElementById('campoCategoria').value = '';
+        document.getElementById('campoSubCategoria').value = '';
+        document.getElementById('campoDescricao').value = '';
+        document.getElementById('campoTipo').value = '0';
+        document.getElementById('campoValor').value = '';
+
+        document.getElementById('tituloForm').innerText = "Novo Lançamento";
+        document.getElementById('tituloForm').style.backgroundColor = "#34495e";
+        document.querySelectorAll('tr').forEach(l => l.classList.remove('selecionada'));
+    }
+
+    function mascaraMoeda(campo) {
+        let valor = campo.value.replace(/\D/g, '');
+        if (valor === "") { campo.value = ""; return; }
+        valor = (parseFloat(valor) / 100);
+        campo.value = formatarExibicao(valor);
+    }
+
+    async function confirmarSalvar() {
+        const valorRaw = document.getElementById('campoValor').value;
+        const valorLimpo = parseFloat(valorRaw.replace(/\./g, '').replace(',', '.'));
+
+        const payload = {
+            id: document.getElementById('campoID').value,
+            data: document.getElementById('campoData').value,
+            favorecido: document.getElementById('campoFavorecido').value,
+            categoria_id: parseInt(document.getElementById('campoCategoria').value) || 0,
+            subcategoria_id: parseInt(document.getElementById('campoSubCategoria').value) || 0,
+            descricao: document.getElementById('campoDescricao').value,
+            tipo_cd: parseInt(document.getElementById('campoTipo').value),
+            valor: valorLimpo
+        };
+
+        if (!payload.data || isNaN(payload.valor)) return alert("Data e Valor são obrigatórios!");
+
+        const rota = payload.id ? '/api/transacoes/atualizar' : '/api/transacoes/inserir';
+
+        const response = await fetch(rota, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            limparForm();
+            carregarDados();
+            window.scrollTo({ top: 0, behavior: 'smooth' }); // Volta para a tabela após salvar
+        }
+    }
+</script>
+{% endblock %}
