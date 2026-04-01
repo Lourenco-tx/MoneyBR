@@ -1,0 +1,258 @@
+
+{% extends 'base.html' %}
+
+{% block body %}
+<style>
+    .moneybr-container { font-family: 'Segoe UI', sans-serif; padding: 20px; background-color: #f4f7f6; }
+    .espaco-topo { margin-top: 30px; }
+
+    .header-moneybr {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #34495e;
+        padding-bottom: 10px;
+    }
+
+    #tituloForm {
+        background-color: #34495e; color: white; padding: 8px 20px; border-radius: 4px;
+        font-size: 1em; margin: 0; transition: all 0.3s; min-width: 220px; text-align: center;
+    }
+
+    #containerForm {
+        padding: 20px; background: white; border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        display: grid; grid-template-columns: 150px 2.8fr 0.6fr 0.6fr;
+        gap: 15px; margin-bottom: 30px;
+    }
+
+    input, select { padding: 10px; width: 100%; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+    .span-2 { grid-column: span 2; }
+    .btn-group { display: flex; gap: 10px; }
+    .btn-salvar { background: #27ae60; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .btn-novo { background: #95a5a6; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
+    label { font-weight: bold; display: block; margin-bottom: 5px; font-size: 0.9em; }
+
+    /* Estilos da Tabela */
+    .tabela-wrapper { max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; }
+    table { width: 100%; border-collapse: collapse; background: white; }
+    th, td { padding: 12px; border: 1px solid #ddd; text-align: left; transition: all 0.1s; }
+    th { background-color: #34495e; color: white; position: sticky; top: 0; z-index: 5; }
+
+    tbody tr:nth-child(even) { background-color: #f9f9f9; }
+
+    /* Cores das Colunas em estado Normal */
+    .txt-credito { color: #27ae60; font-weight: bold; }
+    .txt-debito { color: #e74c3c; font-weight: bold; }
+    .col-saldo { font-weight: bold; text-align: right; background-color: #fcfcfc; color: #2c3e50; }
+    .alinhar-direita { text-align: right; }
+
+    /* 1. Efeito HOVER (Passar o mouse) - Azul Claro */
+    tbody tr:hover td,
+    tbody tr:hover td span,
+    tbody tr:hover .col-saldo {
+        background-color: #d1ecf1 !important;
+        color: #0c5460 !important;
+        cursor: pointer;
+    }
+
+    /* 2. Efeito SELECIONADA (Foco/Click) - Azul Escuro */
+    .selecionada td,
+    .selecionada td span,
+    .selecionada .col-saldo {
+        background-color: #3498db !important;
+        color: white !important;
+    }
+
+    /* Animação Flash ao Salvar */
+    .flash-foco { animation: flash-verde 2s ease-out; }
+    @keyframes flash-verde {
+        0% { background-color: #2ecc71; color: white; }
+        100% { background-color: transparent; }
+    }
+</style>
+
+<div class="moneybr-container">
+    <div class="header-moneybr">
+        <h3>Extrato de Transações</h3>
+    </div>
+
+    <div class="tabela-wrapper">
+        <table id="tabelaTransacoes">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Data</th>
+                    <th>Favorecido</th>
+                    <th class="alinhar-direita">Crédito (+)</th>
+                    <th class="alinhar-direita">Débito (-)</th>
+                    <th class="alinhar-direita">Saldo</th>
+                </tr>
+            </thead>
+            <tbody id="corpoTabela"></tbody>
+        </table>
+    </div>
+
+    <hr>
+
+    <div class="header-moneybr espaco-topo">
+        <h3 id="tituloForm">Novo Lançamento</h3>
+        <div class="btn-group">
+            <button type="button" class="btn-novo" onclick="limparForm()">Limpar / Novo</button>
+            <button type="button" class="btn-salvar" onclick="confirmarSalvar()">Confirmar e Salvar</button>
+        </div>
+    </div>
+
+    <div id="containerForm">
+        <input type="hidden" id="campoID">
+        <div><label>Data:</label><input type="date" id="campoData"></div>
+        <div><label>Favorecido:</label><input type="text" id="campoFavorecido"></div>
+        <div>
+            <label>Tipo (C/D):</label>
+            <select id="campoTipo">
+                <option value="0">0 - Débito (Saída)</option>
+                <option value="1">1 - Crédito (Entrada)</option>
+            </select>
+        </div>
+        <div><label>Valor:</label><input type="text" id="campoValor" placeholder="0,00" oninput="mascaraMoeda(this)"></div>
+        <div class="span-2"><label>Descrição:</label><input type="text" id="campoDescricao"></div>
+        <div><label>Categoria:</label><input type="number" id="campoCategoria"></div>
+        <div><label>Sub-categoria:</label><input type="number" id="campoSubCategoria"></div>
+    </div>
+</div>
+
+<script>
+    let dadosCache = [];
+
+    window.onload = () => carregarDados();
+
+    async function carregarDados(idFocoManual = null) {
+        try {
+            const res = await fetch('/api/transacoes');
+            dadosCache = await res.json();
+            const corpo = document.getElementById('corpoTabela');
+            corpo.innerHTML = '';
+
+            let saldoAcumulado = 10000.00;
+
+            dadosCache.forEach((item) => {
+                const valorNumerico = parseFloat(item.valor) || 0;
+                let colCredito = "---";
+                let colDebito = "---";
+
+                if (parseInt(item.tipo_cd) === 1) {
+                    saldoAcumulado += valorNumerico;
+                    colCredito = `<span class="txt-credito">${formatarMoeda(valorNumerico)}</span>`;
+                } else {
+                    saldoAcumulado -= valorNumerico;
+                    colDebito = `<span class="txt-debito">${formatarMoeda(valorNumerico)}</span>`;
+                }
+
+                const tr = document.createElement('tr');
+                tr.id = `linha-${item.id}`;
+                tr.onclick = () => preencherFormulario(item.id);
+
+                tr.innerHTML = `
+                    <td>${item.id}</td>
+                    <td>${formatarData(item.data)}</td>
+                    <td>${item.favorecido || ''}</td>
+                    <td class="alinhar-direita">${colCredito}</td>
+                    <td class="alinhar-direita">${colDebito}</td>
+                    <td class="col-saldo">${formatarMoeda(saldoAcumulado)}</td>
+                `;
+                corpo.appendChild(tr);
+            });
+
+            let idParaFocar = idFocoManual || (dadosCache.length > 0 ? dadosCache[dadosCache.length - 1].id : null);
+
+            if (idParaFocar) {
+                setTimeout(() => {
+                    const linhaFoco = document.getElementById(`linha-${idParaFocar}`);
+                    if (linhaFoco) {
+                        linhaFoco.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        linhaFoco.classList.add('flash-foco');
+                        preencherFormulario(idParaFocar, false);
+                    }
+                }, 300);
+            }
+        } catch (e) { console.error("Erro MoneyBr:", e); }
+    }
+
+    function preencherFormulario(id, rolarParaForm = true) {
+        const reg = dadosCache.find(d => d.id == id);
+        if (!reg) return;
+
+        document.querySelectorAll('tr').forEach(l => l.classList.remove('selecionada'));
+        const linha = document.getElementById(`linha-${id}`);
+        if (linha) linha.classList.add('selecionada');
+
+        document.getElementById('tituloForm').innerText = "📝 Registro: " + reg.id;
+        document.getElementById('tituloForm').style.backgroundColor = "#2980b9";
+
+        document.getElementById('campoID').value = reg.id;
+        document.getElementById('campoData').value = reg.data;
+        document.getElementById('campoFavorecido').value = reg.favorecido || '';
+        document.getElementById('campoTipo').value = reg.tipo_cd;
+        document.getElementById('campoValor').value = formatarMoeda(reg.valor);
+        document.getElementById('campoDescricao').value = reg.descricao || '';
+        document.getElementById('campoCategoria').value = reg.categoria_id || 0;
+        document.getElementById('campoSubCategoria').value = reg.subcategoria_id || 0;
+
+        if (rolarParaForm) {
+            document.getElementById('containerForm').scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+
+    function formatarMoeda(v) { return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v); }
+    function formatarData(d) { if(!d) return ""; const [a, m, dia] = d.split('-'); return `${dia}/${m}/${a}`; }
+
+    function mascaraMoeda(campo) {
+        let v = campo.value.replace(/\D/g, '');
+        v = (parseFloat(v) / 100);
+        campo.value = isNaN(v) ? "" : formatarMoeda(v);
+    }
+
+    function limparForm() {
+        document.getElementById('campoID').value = '';
+        document.getElementById('containerForm').querySelectorAll('input').forEach(i => i.value = '');
+        document.getElementById('campoTipo').value = '0';
+        document.getElementById('tituloForm').innerText = "Novo Lançamento";
+        document.getElementById('tituloForm').style.backgroundColor = "#34495e";
+        document.querySelectorAll('tr').forEach(l => l.classList.remove('selecionada', 'flash-foco'));
+    }
+
+    async function confirmarSalvar() {
+        const idExistente = document.getElementById('campoID').value;
+        const valorRaw = document.getElementById('campoValor').value;
+        const valorLimpo = parseFloat(valorRaw.replace(/\./g, '').replace(',', '.'));
+
+        const payload = {
+            id: idExistente,
+            data: document.getElementById('campoData').value,
+            favorecido: document.getElementById('campoFavorecido').value,
+            tipo_cd: parseInt(document.getElementById('campoTipo').value),
+            valor: valorLimpo,
+            descricao: document.getElementById('campoDescricao').value,
+            categoria_id: parseInt(document.getElementById('campoCategoria').value) || 0,
+            subcategoria_id: parseInt(document.getElementById('campoSubCategoria').value) || 0
+        };
+
+        const rota = idExistente ? '/api/transacoes/atualizar' : '/api/transacoes/inserir';
+
+        try {
+            const res = await fetch(rota, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                const resp = await res.json();
+                const idFoco = idExistente || resp.id;
+                await carregarDados(idFoco);
+            }
+        } catch (e) { alert("Erro de conexão."); }
+    }
+</script>
+{% endblock %}
